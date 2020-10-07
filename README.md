@@ -2,6 +2,18 @@
 
 SameBoy is an open source Game Boy (DMG) and Game Boy Color (CGB) emulator, written in portable C. It has a native Cocoa frontend for macOS, an SDL frontend for other operating systems, and a libretro core. It also includes a text-based debugger with an expression evaluator. Visit [the website](https://sameboy.github.io/).
 
+## Reversing Emulator
+
+To run  in Reversing mode you need to make the libretro target like so:
+```
+make libretro
+```
+
+And then run your game with a LibRetro Frontend such as RetroArch:
+```
+/Applications/RetroArch.app/Contents/MacOS/RetroArch -L ./libretro/sameboy_libretro.dylib YOUR_ROM.GB
+```
+
 ## Features
 Features common to both Cocoa and SDL versions:
  * Supports Game Boy (DMG) and Game Boy Color (CGB) emulation
