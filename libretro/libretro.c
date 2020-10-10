@@ -22,6 +22,7 @@
 
 #include <Core/gb.h>
 #include "libretro.h"
+#include "../libRetroReversing/include/libRR_c.h"
 
 #ifdef _WIN32
 static const char slash = '\\';
@@ -80,7 +81,7 @@ static uint32_t *frame_buf_copy = NULL;
 static struct retro_log_callback logging;
 static retro_log_printf_t log_cb;
 
-static retro_video_refresh_t video_cb;
+retro_video_refresh_t video_cb;
 static retro_audio_sample_t audio_sample_cb;
 static retro_input_poll_t input_poll_cb;
 static retro_input_state_t input_state_cb;
@@ -120,6 +121,7 @@ static struct retro_rumble_interface rumble;
 static void GB_update_keys_status(GB_gameboy_t *gb, unsigned port)
 {
     input_poll_cb();
+    input_state_cb = libRR_handle_input(input_state_cb);
 
     GB_set_key_state_for_player(gb, GB_KEY_RIGHT,  emulated_devices == 1 ? port : 0,
         input_state_cb(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT));
@@ -504,6 +506,7 @@ static void init_for_current_model(unsigned id)
             { NULL, 0 },
         };
         environ_cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
+        libRR_setInputDescriptor(descriptors_4p, 32);
         environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, descriptors_4p);
     }
     else if (emulated_devices == 1) { 
@@ -512,6 +515,7 @@ static void init_for_current_model(unsigned id)
             { NULL, 0 },
         };
         environ_cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
+        libRR_setInputDescriptor(descriptors_1p, 8);
         environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, descriptors_1p);
     }
     else { 
@@ -521,6 +525,7 @@ static void init_for_current_model(unsigned id)
             { NULL, 0 },
         };
         environ_cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
+        libRR_setInputDescriptor(descriptors_1p, 16);
         environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, descriptors_2p);
     }
 
@@ -955,7 +960,13 @@ void retro_reset(void)
 
 void retro_run(void)
 {
-
+    // libRR start
+    bool should_continue = libRR_run_frame();
+    if (!should_continue)
+    {
+        return;
+    }
+    // libRR end
     bool updated = false;
 
     if (!initialized) {
@@ -1008,7 +1019,7 @@ void retro_run(void)
 
     if (emulated_devices == 2) { 
         if (screen_layout == LAYOUT_TOP_DOWN) {
-            video_cb(frame_buf,
+            libRR_video_cb(frame_buf,
                      GB_get_screen_width(&gameboy[0]),
                      GB_get_screen_height(&gameboy[0]) * emulated_devices,
                      GB_get_screen_width(&gameboy[0]) * sizeof(uint32_t));
@@ -1024,11 +1035,11 @@ void retro_run(void)
                 }
             }
 
-            video_cb(frame_buf_copy, GB_get_screen_width(&gameboy[0]) * emulated_devices, GB_get_screen_height(&gameboy[0]), GB_get_screen_width(&gameboy[0]) * emulated_devices * sizeof(uint32_t));
+            libRR_video_cb(frame_buf_copy, GB_get_screen_width(&gameboy[0]) * emulated_devices, GB_get_screen_height(&gameboy[0]), GB_get_screen_width(&gameboy[0]) * emulated_devices * sizeof(uint32_t));
         }
     }
     else {
-        video_cb(frame_buf,
+        libRR_video_cb(frame_buf,
                  GB_get_screen_width(&gameboy[0]),
                  GB_get_screen_height(&gameboy[0]),
                  GB_get_screen_width(&gameboy[0]) * sizeof(uint32_t));
@@ -1076,6 +1087,10 @@ bool retro_load_game(const struct retro_game_info *info)
     check_variables();
 
     retro_set_memory_maps();
+
+    // libRR start
+    libRR_handle_load_game(info, environ_cb);
+    // libRR end
 
     return true;
 }

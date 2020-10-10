@@ -1,7 +1,8 @@
 STATIC_LINKING := 0
 AR             := ar
 
-CFLAGS := -Wall $(CFLAGS)
+# CFLAGS := -Wall $(CFLAGS)
+CFLAGS := 
 
 VERSION := 0.13.3
 
@@ -308,6 +309,9 @@ endif
 include Makefile.common
 
 OBJECTS := $(patsubst $(CORE_DIR)/%.c,$(CORE_DIR)/build/obj/%_libretro.c.o,$(SOURCES_C))
+libRetroReversingConsole = GameBoy
+libRetroReversingMakeType = OBJECTS
+include ../libRetroReversing/Makefile.retroreversing
 
 OBJOUT   = -o
 LINKOUT  = -o 
@@ -325,7 +329,7 @@ else
 	LD = $(CC)
 endif
 
-CFLAGS   += -D__LIBRETRO__ $(fpic) $(INCFLAGS) -std=gnu11 -D_GNU_SOURCE -D_USE_MATH_DEFINES
+CFLAGS   += -D__LIBRETRO__ $(fpic) $(INCFLAGS) -D_GNU_SOURCE -D_USE_MATH_DEFINES
 
 all: $(TARGET)
 
@@ -359,10 +363,9 @@ $(CORE_DIR)/build/obj/%_libretro.c.o: $(CORE_DIR)/%.c
 	$(CC) -c $(OBJOUT)$@ $< $(CFLAGS) $(fpic) -DGB_INTERNAL
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(fpic) -c $(OBJOUT)$@ $<
+	$(CC) $(CFLAGS) $(fpic) -DGB_INTERNAL -c $(OBJOUT)$@ $<
 
 clean:
 	rm -f $(OBJECTS) $(TARGET)
 
 .PHONY: clean
-
