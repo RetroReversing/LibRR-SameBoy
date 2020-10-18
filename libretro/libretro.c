@@ -121,7 +121,8 @@ static struct retro_rumble_interface rumble;
 static void GB_update_keys_status(GB_gameboy_t *gb, unsigned port)
 {
     input_poll_cb();
-    input_state_cb = libRR_handle_input(input_state_cb);
+    retro_input_state_t original_input_state_cb = input_state_cb;
+    input_state_cb = libRR_handle_input(original_input_state_cb);
 
     GB_set_key_state_for_player(gb, GB_KEY_RIGHT,  emulated_devices == 1 ? port : 0,
         input_state_cb(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT));
@@ -139,6 +140,8 @@ static void GB_update_keys_status(GB_gameboy_t *gb, unsigned port)
         input_state_cb(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT));
     GB_set_key_state_for_player(gb, GB_KEY_START,  emulated_devices == 1 ? port : 0,
         input_state_cb(port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START));
+
+    input_state_cb = original_input_state_cb;
 
 }
 
@@ -397,7 +400,7 @@ static void retro_set_memory_maps(void)
     size_t size;
     uint16_t bank;
     unsigned i;
-
+    printf("retro_set_memory_maps \n");
 
     /* todo: add netplay awareness for this so achievements can be granted on the respective client */
     i = 0;
@@ -406,55 +409,67 @@ static void retro_set_memory_maps(void)
     descs[0].ptr     = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_IE, &size, &bank);
     descs[0].start   = 0xFFFF;
     descs[0].len     = 1;
+    descs[0].addrspace     = "IE";
 
     descs[1].ptr     = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_HRAM, &size, &bank);
     descs[1].start   = 0xFF80;
     descs[1].len     = 0x0080;
+    descs[1].addrspace = "HRAM";
 
     descs[2].ptr     = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_RAM, &size, &bank);
     descs[2].start   = 0xC000;
     descs[2].len     = 0x1000;
+    descs[2].addrspace = "RAM bank 0";
 
     descs[3].ptr     = descs[2].ptr + 0x1000; /* GB RAM/GBC RAM bank 1 */
     descs[3].start   = 0xD000;
     descs[3].len     = 0x1000;
+    descs[3].addrspace = "RAM bank 1";
 
     descs[4].ptr     = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_CART_RAM, &size, &bank);
     descs[4].start   = 0xA000;
     descs[4].len     = 0x2000;
+    descs[4].addrspace = "Cart RAM";
 
     descs[5].ptr     = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_VRAM, &size, &bank);
     descs[5].start   = 0x8000;
     descs[5].len     = 0x2000;
+    descs[5].addrspace = "Video RAM";
 
     descs[6].ptr     = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_ROM, &size, &bank);
     descs[6].start   = 0x0000;
     descs[6].len     = 0x4000;
     descs[6].flags   = RETRO_MEMDESC_CONST;
+    descs[6].addrspace = "ROM Bank 0";
 
     descs[7].ptr     = descs[6].ptr + (bank * 0x4000);
     descs[7].start   = 0x4000;
     descs[7].len     = 0x4000;
     descs[7].flags   = RETRO_MEMDESC_CONST;
+    descs[7].addrspace = "ROM Bank X";
 
     descs[8].ptr   = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_OAM, &size, &bank);
     descs[8].start = 0xFE00;
     descs[8].len   = 0x00A0;
     descs[8].select = 0xFFFFFF00;
+    descs[8].addrspace = "Object Attribute Memory";
 
     descs[9].ptr   = descs[2].ptr + 0x2000; /* GBC RAM bank 2 */
     descs[9].start = 0x10000;
     descs[9].len   = GB_is_cgb(&gameboy[i]) ? 0x6000 : 0; /* 0x1000 per bank (2-7), unmapped on GB */
     descs[9].select = 0xFFFF0000;
+    descs[9].addrspace = "GBC RAM Bank 2";
 
     descs[10].ptr   = GB_get_direct_access(&gameboy[i], GB_DIRECT_ACCESS_IO, &size, &bank);
     descs[10].start = 0xFF00;
     descs[10].len   = 0x0080;
     descs[10].select = 0xFFFFFF00;
+    descs[10].addrspace = "Input & Output";
 
     struct retro_memory_map mmaps;
     mmaps.descriptors = descs;
     mmaps.num_descriptors = sizeof(descs) / sizeof(descs[0]);
+    libRR_set_retro_memmap(descs, mmaps.num_descriptors);
     environ_cb(RETRO_ENVIRONMENT_SET_MEMORY_MAPS, &mmaps);
 }
 

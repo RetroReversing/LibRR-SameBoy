@@ -2001,6 +2001,7 @@ static bool help(GB_gameboy_t *gb, char *arguments, char *modifiers, const debug
     return true;
 }
 
+// call_addr is the address of the function we are calling
 void GB_debugger_call_hook(GB_gameboy_t *gb, uint16_t call_addr)
 {
     /* Called just after the CPU calls a function/enters an interrupt/etc... */
@@ -2016,6 +2017,8 @@ void GB_debugger_call_hook(GB_gameboy_t *gb, uint16_t call_addr)
         }
     }
 
+    // Make sure the backtract size doesn't go bigger than the size of backtrace_sps array
+    // otherwise just ignore it
     if (gb->backtrace_size < sizeof(gb->backtrace_sps) / sizeof(gb->backtrace_sps[0])) {
 
         while (gb->backtrace_size) {

@@ -975,6 +975,9 @@ static void call_cc_a16(GB_gameboy_t *gb, uint8_t opcode)
     uint16_t addr = cycle_read_inc_oam_bug(gb, gb->pc++);
     addr |= (cycle_read_inc_oam_bug(gb, gb->pc++) << 8);
     if (condition_code(gb, opcode)) {
+        // libRR start
+        libRR_log_function_call(call_addr, addr, gb->registers[GB_REGISTER_SP]);
+        // libRR end
         cycle_oam_bug(gb, GB_REGISTER_SP);
         cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) >> 8);
         cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) & 0xFF);
@@ -1123,14 +1126,21 @@ static void rst(GB_gameboy_t *gb, uint8_t opcode)
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) >> 8);
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) & 0xFF);
     gb->pc = opcode ^ 0xC7;
+    // libRR start (not sure if RST should be counted as a call)
+    // libRR_log_function_call(opcode ^ 0xC7, gb->pc - 1, gb->registers[GB_REGISTER_SP]);
+    // libRR end
     GB_debugger_call_hook(gb, call_addr);
 }
 
 static void ret(GB_gameboy_t *gb, uint8_t opcode)
 {
     GB_debugger_ret_hook(gb);
+    uint16_t call_addr = gb->pc - 1;
     gb->pc = cycle_read_inc_oam_bug(gb, gb->registers[GB_REGISTER_SP]++);
     gb->pc |= cycle_read(gb, gb->registers[GB_REGISTER_SP]++) << 8;
+    // libRR start
+    // libRR_log_return_statement(call_addr, gb->pc, gb->registers[GB_REGISTER_SP]);
+    // libRR end
     cycle_no_access(gb);
 }
 
@@ -1156,6 +1166,9 @@ static void call_a16(GB_gameboy_t *gb, uint8_t opcode)
     uint16_t call_addr = gb->pc - 1;
     uint16_t addr = cycle_read_inc_oam_bug(gb, gb->pc++);
     addr |= (cycle_read_inc_oam_bug(gb, gb->pc++) << 8);
+    // libRR start
+    libRR_log_function_call(call_addr, addr, gb->registers[GB_REGISTER_SP]);
+    // libRR end
     cycle_oam_bug(gb, GB_REGISTER_SP);
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) >> 8);
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) & 0xFF);
@@ -1537,7 +1550,6 @@ void GB_cpu_run(GB_gameboy_t *gb)
     else if (effective_ime && interrupt_queue) {
         gb->halted = false;
         uint16_t call_addr = gb->pc;
-        
         cycle_no_access(gb);
         cycle_no_access(gb);
         GB_trigger_oam_bug(gb, gb->registers[GB_REGISTER_SP]); /* Todo: test T-cycle timing */
@@ -1569,6 +1581,10 @@ void GB_cpu_run(GB_gameboy_t *gb)
         }
         gb->ime = false;
         GB_debugger_call_hook(gb, call_addr);
+         // libRR Start call for Interrupt
+        libRR_log_function_call(call_addr, gb->pc, gb->registers[GB_REGISTER_SP]);
+        // libRR end
+        // printf("libRR TODO: what is call interrupt? call_addr:%d\n", call_addr);
     }
     /* Run mode */
     else if (!gb->halted) {
