@@ -183,7 +183,7 @@ static void jr_r8(GB_gameboy_t *gb, uint8_t opcode, uint16_t *pc)
     (*pc)++;
 }
 
-static const char *condition_code(uint8_t opcode)
+const char *condition_code(uint8_t opcode)
 {
     switch ((opcode >> 3) & 0x3) {
         case 0:

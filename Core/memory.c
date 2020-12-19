@@ -471,6 +471,11 @@ void GB_set_read_memory_callback(GB_gameboy_t *gb, GB_read_memory_callback_t cal
     gb->read_memory_callback = callback;
 }
 
+uint16_t GB_read_memory16(GB_gameboy_t *gb, uint16_t addr) {
+    return read_map[addr >> 12](gb, addr);
+}
+
+
 uint8_t GB_read_memory(GB_gameboy_t *gb, uint16_t addr)
 {
     if (gb->n_watchpoints) {
@@ -715,6 +720,10 @@ static void write_banked_ram(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
     gb->ram[(addr & 0x0FFF) + gb->cgb_ram_bank * 0x1000] = value;
 }
 
+// libRR start
+extern bool libRR_finished_boot_rom;
+// libRR end
+
 static void write_high_memory(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 {
     if (addr < 0xFE00) {
@@ -949,6 +958,7 @@ static void write_high_memory(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
 
             case GB_IO_BANK:
                 gb->boot_rom_finished = true;
+                libRR_finished_boot_rom = true;
                 return;
 
             case GB_IO_KEY0:

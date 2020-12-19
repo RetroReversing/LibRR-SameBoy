@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include "gb.h"
-
+#include "libRetroReversing/include/libRR_c.h"
 
 typedef void GB_opcode_t(GB_gameboy_t *gb, uint8_t opcode);
 
@@ -359,16 +359,23 @@ static void stop(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_rr_d16(GB_gameboy_t *gb, uint8_t opcode)
 {
-    uint8_t register_id;
+    uint8_t register_id, value2;
     uint16_t value;
     register_id = (opcode >> 4) + 1;
     value = cycle_read_inc_oam_bug(gb, gb->pc++);
+    value2 = cycle_read_inc_oam_bug(gb, gb->pc+1) << 8;
+    // TODO: operands
+    // int16_t b2b1 = two_bytes_to_16bit_value(value, opcode);
+    uint32_t b2b1 = three_bytes_to_24bit_value(value2, (uint8_t)value, opcode);
+    libRR_log_instruction(gb->pc-2, "ld_rr_d16", (uint32_t)b2b1, 3); // TODO: something wrong with this one's pc
+    // value |= value2;
     value |= cycle_read_inc_oam_bug(gb, gb->pc++) << 8;
     gb->registers[register_id] = value;
 }
 
 static void ld_drr_a(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_drr_a", opcode, 2);
     uint8_t register_id;
     register_id = (opcode >> 4) + 1;
     cycle_write(gb, gb->registers[register_id], gb->registers[GB_REGISTER_AF] >> 8);
@@ -398,6 +405,7 @@ static void inc_hr(GB_gameboy_t *gb, uint8_t opcode)
 }
 static void dec_hr(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "DEC hr", opcode, 1);
     uint8_t register_id;
     register_id = ((opcode >> 4) + 1) & 0x03;
     gb->registers[register_id] -= 0x100;
@@ -415,6 +423,7 @@ static void dec_hr(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_hr_d8(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_hr_d8", opcode, 2);
     uint8_t register_id;
     register_id = ((opcode >> 4) + 1) & 0x03;
     gb->registers[register_id] &= 0xFF;
@@ -447,6 +456,7 @@ static void rla(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_da16_sp(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_da16_sp", opcode, 2);
     /* Todo: Verify order is correct */
     uint16_t addr;
     addr = cycle_read_inc_oam_bug(gb, gb->pc++);
@@ -457,6 +467,7 @@ static void ld_da16_sp(GB_gameboy_t *gb, uint8_t opcode)
 
 static void add_hl_rr(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ADD hl, rr", opcode, 1);
     uint16_t hl = gb->registers[GB_REGISTER_HL];
     uint16_t rr;
     uint8_t register_id;
@@ -478,6 +489,7 @@ static void add_hl_rr(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_a_drr(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_a_drr", opcode, 2);
     uint8_t register_id;
     register_id = (opcode >> 4) + 1;
     gb->registers[GB_REGISTER_AF] &= 0xFF;
@@ -486,6 +498,8 @@ static void ld_a_drr(GB_gameboy_t *gb, uint8_t opcode)
 
 static void dec_rr(GB_gameboy_t *gb, uint8_t opcode)
 {
+    // TODO: log register id
+    libRR_log_instruction(gb->pc-1, "DEC rr", opcode, 1);
     uint8_t register_id = (opcode >> 4) + 1;
     cycle_oam_bug(gb, register_id);
     gb->registers[register_id]--;
@@ -512,6 +526,7 @@ static void inc_lr(GB_gameboy_t *gb, uint8_t opcode)
 }
 static void dec_lr(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "DEC lr", opcode, 1);
     uint8_t register_id;
     uint8_t value;
     register_id = (opcode >> 4) + 1;
@@ -533,6 +548,7 @@ static void dec_lr(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_lr_d8(GB_gameboy_t *gb, uint8_t opcode)
 {
+        libRR_log_instruction(gb->pc-1, "ld_lr_d8", opcode, 2);
     uint8_t register_id;
     register_id = (opcode >> 4) + 1;
     gb->registers[register_id] &= 0xFF00;
@@ -566,7 +582,15 @@ static void rra(GB_gameboy_t *gb, uint8_t opcode)
 static void jr_r8(GB_gameboy_t *gb, uint8_t opcode)
 {
     /* Todo: Verify timing */
+    uint32_t current_pc = gb->pc-1;
+    int8_t operand = (int8_t)cycle_read_inc_oam_bug(gb, gb->pc);
+    int16_t b2b1 = two_bytes_to_16bit_value(operand, opcode);
+    libRR_log_instruction(current_pc, "JR r8", b2b1, 2);
+
     gb->pc += (int8_t)cycle_read_inc_oam_bug(gb, gb->pc) + 1;
+
+    
+    // gb->pc += operand + 1;
     cycle_no_access(gb);
 }
 
@@ -586,9 +610,32 @@ static bool condition_code(GB_gameboy_t *gb, uint8_t opcode)
     return false;
 }
 
+const char *condition_code_string(uint8_t opcode)
+{
+    switch ((opcode >> 3) & 0x3) {
+        case 0:
+            return "nz";
+        case 1:
+            return "z";
+        case 2:
+            return "nc";
+        case 3:
+            return "c";
+    }
+
+    return NULL;
+}
+
 static void jr_cc_r8(GB_gameboy_t *gb, uint8_t opcode)
 {
+    uint32_t current_pc = gb->pc-1;
     int8_t offset = cycle_read_inc_oam_bug(gb, gb->pc++);
+    int16_t b2b1 = two_bytes_to_16bit_value(offset, opcode);
+
+    const char* cc = condition_code_string(opcode);
+    char buf[256];
+    snprintf(buf, sizeof(buf), "%s%s%s%d", "JR ", cc, ", ", offset);
+    libRR_log_instruction(current_pc, buf, b2b1, 2);
     if (condition_code(gb, opcode)) {
         gb->pc += offset;
         cycle_no_access(gb);
@@ -652,22 +699,26 @@ static void ccf(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_dhli_a(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_dhli_a", opcode, 2);
     cycle_write(gb, gb->registers[GB_REGISTER_HL]++, gb->registers[GB_REGISTER_AF] >> 8);
 }
 
 static void ld_dhld_a(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_dhld_a", opcode, 2);
     cycle_write(gb, gb->registers[GB_REGISTER_HL]--, gb->registers[GB_REGISTER_AF] >> 8);
 }
 
 static void ld_a_dhli(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_a_dhli", opcode, 2);
     gb->registers[GB_REGISTER_AF] &= 0xFF;
     gb->registers[GB_REGISTER_AF] |= cycle_read_inc_oam_bug(gb, gb->registers[GB_REGISTER_HL]++) << 8;
 }
 
 static void ld_a_dhld(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_a_dhld", opcode, 2);
     gb->registers[GB_REGISTER_AF] &= 0xFF;
     gb->registers[GB_REGISTER_AF] |= cycle_read_inc_oam_bug(gb, gb->registers[GB_REGISTER_HL]--) << 8;
 }
@@ -690,6 +741,7 @@ static void inc_dhl(GB_gameboy_t *gb, uint8_t opcode)
 
 static void dec_dhl(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "DEC dhl", opcode, 1);
     uint8_t value;
     value = cycle_read(gb, gb->registers[GB_REGISTER_HL]) - 1;
     cycle_write(gb, gb->registers[GB_REGISTER_HL], value);
@@ -707,6 +759,7 @@ static void dec_dhl(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_dhl_d8(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_dhl_d8", opcode, 2);
     uint8_t data = cycle_read_inc_oam_bug(gb, gb->pc++);
     cycle_write(gb, gb->registers[GB_REGISTER_HL], data);
 }
@@ -765,18 +818,21 @@ static void set_src_value(GB_gameboy_t *gb, uint8_t opcode, uint8_t value)
 #define LD_X_Y(x, y) \
 static void ld_##x##_##y(GB_gameboy_t *gb, uint8_t opcode) \
 { \
+libRR_log_instruction(gb->pc-1, "LD_X_Y", opcode, 1); \
     gb->x = gb->y;\
 }
 
 #define LD_X_DHL(x) \
 static void ld_##x##_##dhl(GB_gameboy_t *gb, uint8_t opcode) \
 { \
+libRR_log_instruction(gb->pc-1, "LD_X_DHL", opcode, 1); \
 gb->x = cycle_read(gb, gb->registers[GB_REGISTER_HL]); \
 }
 
 #define LD_DHL_Y(y) \
 static void ld_##dhl##_##y(GB_gameboy_t *gb, uint8_t opcode) \
 { \
+libRR_log_instruction(gb->pc-1, "LD (HL), y", opcode, 1); \
 cycle_write(gb, gb->registers[GB_REGISTER_HL], gb->y); \
 }
 
@@ -792,6 +848,7 @@ LD_X_Y(a,b) LD_X_Y(a,c) LD_X_Y(a,d) LD_X_Y(a,e) LD_X_Y(a,h) LD_X_Y(a,l) LD_X_DHL
 // fire the debugger if software breakpoints are enabled
 static void ld_b_b(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_b_b", opcode, 2);
     if (gb->has_software_breakpoints) {
         gb->debug_stopped = true;
     }
@@ -883,6 +940,7 @@ static void and_a_r(GB_gameboy_t *gb, uint8_t opcode)
 static void xor_a_r(GB_gameboy_t *gb, uint8_t opcode)
 {
     uint8_t value, a;
+    libRR_log_instruction(gb->pc-1, "XOR a r", opcode, 1);
     value = get_src_value(gb, opcode);
     a = gb->registers[GB_REGISTER_AF] >> 8;
     gb->registers[GB_REGISTER_AF] = (a ^ value) << 8;
@@ -974,6 +1032,7 @@ static void call_cc_a16(GB_gameboy_t *gb, uint8_t opcode)
     uint16_t call_addr = gb->pc - 1;
     uint16_t addr = cycle_read_inc_oam_bug(gb, gb->pc++);
     addr |= (cycle_read_inc_oam_bug(gb, gb->pc++) << 8);
+    libRR_log_instruction(gb->pc, "CALL cc a16", opcode, 3);
     if (condition_code(gb, opcode)) {
         // libRR start
         libRR_log_function_call(call_addr, addr, gb->registers[GB_REGISTER_SP]);
@@ -990,6 +1049,7 @@ static void call_cc_a16(GB_gameboy_t *gb, uint8_t opcode)
 static void push_rr(GB_gameboy_t *gb, uint8_t opcode)
 {
     uint8_t register_id;
+    // libRR_log_instruction(gb->pc, "PUSH rr", opcode, 1); // TODO: something wrong with this ones PC
     cycle_oam_bug(gb, GB_REGISTER_SP);
     register_id = ((opcode >> 4) + 1) & 3;
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->registers[register_id]) >> 8);
@@ -1088,6 +1148,7 @@ static void xor_a_d8(GB_gameboy_t *gb, uint8_t opcode)
     if ((a ^ value) == 0) {
         gb->registers[GB_REGISTER_AF] |= GB_ZERO_FLAG;
     }
+    libRR_log_instruction(gb->pc, "XOR a d8", opcode, 2);
 }
 
 static void or_a_d8(GB_gameboy_t *gb, uint8_t opcode)
@@ -1122,11 +1183,13 @@ static void cp_a_d8(GB_gameboy_t *gb, uint8_t opcode)
 static void rst(GB_gameboy_t *gb, uint8_t opcode)
 {
     uint16_t call_addr = gb->pc - 1;
+    libRR_log_instruction(gb->pc-1, "RST", opcode, 1);
     cycle_oam_bug(gb, GB_REGISTER_SP);
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) >> 8);
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) & 0xFF);
     gb->pc = opcode ^ 0xC7;
     // libRR start (not sure if RST should be counted as a call)
+    printf("RST");
     // libRR_log_function_call(opcode ^ 0xC7, gb->pc - 1, gb->registers[GB_REGISTER_SP]);
     // libRR end
     GB_debugger_call_hook(gb, call_addr);
@@ -1136,10 +1199,12 @@ static void ret(GB_gameboy_t *gb, uint8_t opcode)
 {
     GB_debugger_ret_hook(gb);
     uint16_t call_addr = gb->pc - 1;
+    libRR_log_instruction(gb->pc - 1, "RET", opcode, 1);
     gb->pc = cycle_read_inc_oam_bug(gb, gb->registers[GB_REGISTER_SP]++);
     gb->pc |= cycle_read(gb, gb->registers[GB_REGISTER_SP]++) << 8;
     // libRR start
-    // libRR_log_return_statement(call_addr, gb->pc, gb->registers[GB_REGISTER_SP]);
+    // Why do we subtract 3?
+    libRR_log_return_statement(call_addr, gb->pc-3, gb->registers[GB_REGISTER_SP]);
     // libRR end
     cycle_no_access(gb);
 }
@@ -1178,24 +1243,33 @@ static void call_a16(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_da8_a(GB_gameboy_t *gb, uint8_t opcode)
 {
+    uint32_t current_pc = gb->pc-1;
     uint8_t temp = cycle_read_inc_oam_bug(gb, gb->pc++);
+    int16_t b2b1 = two_bytes_to_16bit_value(temp, opcode);
+    libRR_log_instruction(current_pc, "ld_da8_a", b2b1, 2);
+
     cycle_write(gb, 0xFF00 + temp, gb->registers[GB_REGISTER_AF] >> 8);
 }
 
 static void ld_a_da8(GB_gameboy_t *gb, uint8_t opcode)
 {
+    uint32_t current_pc = gb->pc-1;
     gb->registers[GB_REGISTER_AF] &= 0xFF;
     uint8_t temp = cycle_read_inc_oam_bug(gb, gb->pc++);
+    int16_t b2b1 = two_bytes_to_16bit_value(temp, opcode);
+    libRR_log_instruction(current_pc, "LDH A,(a8)", b2b1, 2);
     gb->registers[GB_REGISTER_AF] |= cycle_read(gb, 0xFF00 + temp) << 8;
 }
 
 static void ld_dc_a(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_dc_a", opcode, 2);
     cycle_write(gb, 0xFF00 + (gb->registers[GB_REGISTER_BC] & 0xFF), gb->registers[GB_REGISTER_AF] >> 8);
 }
 
 static void ld_a_dc(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_a_dc", opcode, 2);
     gb->registers[GB_REGISTER_AF] &= 0xFF;
     gb->registers[GB_REGISTER_AF] |= cycle_read(gb, 0xFF00 + (gb->registers[GB_REGISTER_BC] & 0xFF)) << 8;
 }
@@ -1223,11 +1297,13 @@ static void add_sp_r8(GB_gameboy_t *gb, uint8_t opcode)
 
 static void jp_hl(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc, "JP hl", opcode, 1);
     gb->pc = gb->registers[GB_REGISTER_HL];
 }
 
 static void ld_da16_a(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_da16_a", opcode, 2);
     uint16_t addr;
     addr = cycle_read_inc_oam_bug(gb, gb->pc++);
     addr |= cycle_read_inc_oam_bug(gb, gb->pc++) << 8;
@@ -1236,6 +1312,7 @@ static void ld_da16_a(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_a_da16(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_a_da16", opcode, 2);
     uint16_t addr;
     gb->registers[GB_REGISTER_AF] &= 0xFF;
     addr = cycle_read_inc_oam_bug(gb, gb->pc++);
@@ -1260,6 +1337,7 @@ static void ei(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_hl_sp_r8(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_hl_sp_r8", opcode, 2);
     int16_t offset;
     gb->registers[GB_REGISTER_AF] &= 0xFF00;
     offset = (int8_t) cycle_read_inc_oam_bug(gb, gb->pc++);
@@ -1277,6 +1355,7 @@ static void ld_hl_sp_r8(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_sp_hl(GB_gameboy_t *gb, uint8_t opcode)
 {
+    libRR_log_instruction(gb->pc-1, "ld_sp_hl", opcode, 2);
     gb->registers[GB_REGISTER_SP] = gb->registers[GB_REGISTER_HL];
     cycle_no_access(gb);
 }
@@ -1434,35 +1513,47 @@ static void bit_r(GB_gameboy_t *gb, uint8_t opcode)
     }
 }
 
-static void cb_prefix(GB_gameboy_t *gb, uint8_t opcode)
+static void cb_prefix(GB_gameboy_t *gb, uint8_t original_opcode)
 {
-    opcode = cycle_read_inc_oam_bug(gb, gb->pc++);
+    int16_t current_pc = gb->pc-1;
+
+    uint8_t opcode = cycle_read_inc_oam_bug(gb, gb->pc++);
+    int16_t b2b1 = two_bytes_to_16bit_value(opcode, original_opcode);
     switch (opcode >> 3) {
         case 0:
+            libRR_log_instruction(current_pc, "cb_rlc_r", b2b1, 2);
             rlc_r(gb, opcode);
             break;
         case 1:
+            libRR_log_instruction(current_pc, "cb_rrc_r", b2b1, 2);
             rrc_r(gb, opcode);
             break;
         case 2:
+            libRR_log_instruction(current_pc, "cb_rl_r", b2b1, 2);
             rl_r(gb, opcode);
             break;
         case 3:
+            libRR_log_instruction(current_pc, "cb_rr_r", b2b1, 2);
             rr_r(gb, opcode);
             break;
         case 4:
+            libRR_log_instruction(current_pc, "cb_sla_r", b2b1, 2);
             sla_r(gb, opcode);
             break;
         case 5:
+            libRR_log_instruction(current_pc, "cb_sra_r", b2b1, 2);
             sra_r(gb, opcode);
             break;
         case 6:
+            libRR_log_instruction(current_pc, "cb_swap_r", b2b1, 2);
             swap_r(gb, opcode);
             break;
         case 7:
+            libRR_log_instruction(current_pc, "cb_srl_r", b2b1, 2);
             srl_r(gb, opcode);
             break;
         default:
+            libRR_log_instruction(current_pc, "cb_bit_r", b2b1, 2);
             bit_r(gb, opcode);
             break;
     }
@@ -1582,6 +1673,7 @@ void GB_cpu_run(GB_gameboy_t *gb)
         gb->ime = false;
         GB_debugger_call_hook(gb, call_addr);
          // libRR Start call for Interrupt
+         printf("Interuppt call\n");
         libRR_log_function_call(call_addr, gb->pc, gb->registers[GB_REGISTER_SP]);
         // libRR end
         // printf("libRR TODO: what is call interrupt? call_addr:%d\n", call_addr);
