@@ -41,7 +41,7 @@ const GB_cartridge_t GB_cart_defs[256] = {
     {  GB_HUC1  , GB_STANDARD_MBC, true , true , false, false}, // FFh  HuC1+RAM+BATTERY
 };
 
-extern uint32_t libRR_current_bank;
+extern uint16_t libRR_current_bank;
 void GB_update_mbc_mappings(GB_gameboy_t *gb)
 {
     switch (gb->cartridge_type->mbc_type) {
