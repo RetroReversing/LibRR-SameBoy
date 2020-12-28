@@ -774,7 +774,7 @@ static void jr_cc_r8(GB_gameboy_t *gb, uint8_t opcode)
         if (strcmp(label_name, "") == 0) {
             // printf("Invalid label name, could be in boot rom or hram\n");
         } else {
-            snprintf(buf, sizeof(buf), "jr %s, %s ; done", cc, label_name);
+            snprintf(buf, sizeof(buf), "jr %s, %s", cc, label_name);
             libRR_log_instruction(current_pc, buf, b2b1, 2);
         }
         gb->pc += offset;
@@ -854,7 +854,7 @@ static void ld_dhli_a(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_dhld_a(GB_gameboy_t *gb, uint8_t opcode)
 {
-    libRR_log_instruction(gb->pc-1, "ld [hld], a", opcode, 2);
+    libRR_log_instruction(gb->pc-1, "ld [hld], a", opcode, 1);
     cycle_write(gb, gb->registers[GB_REGISTER_HL]--, gb->registers[GB_REGISTER_AF] >> 8);
 }
 
