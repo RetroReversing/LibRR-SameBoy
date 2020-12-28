@@ -1170,6 +1170,7 @@ void GB_dma_run(GB_gameboy_t *gb)
         gb->dma_steps_left--;
         
         if (gb->dma_current_src < 0xe000) {
+            libRR_log_dma(gb->dma_current_src);
             gb->oam[gb->dma_current_dest++] = GB_read_memory(gb, gb->dma_current_src);
         }
         else {

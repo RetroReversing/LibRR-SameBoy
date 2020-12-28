@@ -704,14 +704,17 @@ static void jr_r8(GB_gameboy_t *gb, uint8_t opcode)
     /* Todo: Verify timing */
     int8_t operand = (int8_t)cycle_read_inc_oam_bug(gb, gb->pc);
     int16_t b2b1 = two_bytes_to_16bit_value(operand, opcode);
-    // libRR_log_instruction(current_pc, "JR r8", b2b1, 2);
 
     if (libRR_full_function_log) {
         uint32_t current_pc = gb->pc-1;
-        // libRR_log_instruction_z80(current_pc, "jr %da8%", b2b1, 2, opcode, operand);
         char buf[256];
-        snprintf(buf, sizeof(buf), "%s%s", "jr ", libRR_log_jump_label(gb->pc+operand+1));
-        libRR_log_instruction(current_pc, buf, b2b1, 2);
+        const char* label_name = libRR_log_jump_label(gb->pc+operand+1, current_pc);
+        if (strcmp(label_name, "") == 0) {
+            // printf("Invalid label name, could be in boot rom or hram\n");
+        } else {
+            snprintf(buf, sizeof(buf), "%s%s", "jr ", label_name);
+            libRR_log_instruction(current_pc, buf, b2b1, 2);
+        }
     }
 
     gb->pc += (int8_t)cycle_read_inc_oam_bug(gb, gb->pc) + 1;
@@ -766,8 +769,14 @@ static void jr_cc_r8(GB_gameboy_t *gb, uint8_t opcode)
         // this is because the label must be used otherwise assembler will crash due to referencing an undefined label
         // this means that if in your playthought you have never triggered this condition it will look like a nop with a comment say unexecuted
         char buf[256];
-        snprintf(buf, sizeof(buf), "jr %s, %s", cc, libRR_log_jump_label(gb->pc+offset));
-        libRR_log_instruction(current_pc, buf, b2b1, 2);
+        
+        const char* label_name = libRR_log_jump_label(gb->pc+offset, current_pc);
+        if (strcmp(label_name, "") == 0) {
+            // printf("Invalid label name, could be in boot rom or hram\n");
+        } else {
+            snprintf(buf, sizeof(buf), "jr %s, %s ; done", cc, label_name);
+            libRR_log_instruction(current_pc, buf, b2b1, 2);
+        }
         gb->pc += offset;
         cycle_no_access(gb);
     } else {
@@ -1340,12 +1349,17 @@ static void add_a_d8(GB_gameboy_t *gb, uint8_t opcode)
 
 static void adc_a_d8(GB_gameboy_t *gb, uint8_t opcode)
 {
-    libRR_log_instruction(gb->pc-1, "ADC a d8", opcode, 1);
     uint8_t value, a, carry;
     value = cycle_read_inc_oam_bug(gb, gb->pc++);
     a = gb->registers[GB_REGISTER_AF] >> 8;
     carry = (gb->registers[GB_REGISTER_AF] & GB_CARRY_FLAG) != 0;
     gb->registers[GB_REGISTER_AF] = (a + value + carry) << 8;
+
+    if (libRR_full_function_log) {
+        uint32_t current_pc = gb->pc-2;
+        int16_t b2b1 = two_bytes_to_16bit_value(value, opcode);
+        libRR_log_instruction_z80(current_pc, "adc a, %da8%", b2b1, 2, opcode, value);
+    }
 
     if (gb->registers[GB_REGISTER_AF] == 0) {
         gb->registers[GB_REGISTER_AF] |= GB_ZERO_FLAG;
@@ -1384,12 +1398,17 @@ static void sub_a_d8(GB_gameboy_t *gb, uint8_t opcode)
 
 static void sbc_a_d8(GB_gameboy_t *gb, uint8_t opcode)
 {
-    libRR_log_instruction(gb->pc-1, "SBC a,d8", opcode, 1);
     uint8_t value, a, carry;
     value = cycle_read_inc_oam_bug(gb, gb->pc++);
     a = gb->registers[GB_REGISTER_AF] >> 8;
     carry = (gb->registers[GB_REGISTER_AF] & GB_CARRY_FLAG) != 0;
     gb->registers[GB_REGISTER_AF] = ((a - value - carry) << 8) | GB_SUBTRACT_FLAG;
+
+    if (libRR_full_function_log) {
+        uint32_t current_pc = gb->pc-2;
+        int16_t b2b1 = two_bytes_to_16bit_value(value, opcode);
+        libRR_log_instruction_z80(current_pc, "sbc %da8%", b2b1, 2, opcode, value);
+    }
 
     if ((uint8_t) (a - value - carry) == 0) {
         gb->registers[GB_REGISTER_AF] |= GB_ZERO_FLAG;
@@ -1603,7 +1622,7 @@ static void ld_dc_a(GB_gameboy_t *gb, uint8_t opcode)
 
 static void ld_a_dc(GB_gameboy_t *gb, uint8_t opcode)
 {
-    libRR_log_instruction(gb->pc-1, "ld_a_dc", opcode, 2);
+    libRR_log_instruction(gb->pc-1, "ld a, [c]", opcode, 1);
     gb->registers[GB_REGISTER_AF] &= 0xFF;
     gb->registers[GB_REGISTER_AF] |= cycle_read_data_only(gb, 0xFF00 + (gb->registers[GB_REGISTER_BC] & 0xFF), "DC", 1) << 8;
 }
