@@ -1070,6 +1070,13 @@ static void sub_a_r(GB_gameboy_t *gb, uint8_t opcode)
 {
     uint8_t value, a;
     value = get_src_value(gb, opcode);
+
+    // 1 byte register instruction logging
+    if (libRR_full_function_log) {
+        uint32_t current_pc = gb->pc-1;
+        libRR_log_instruction_z80_register(current_pc, "sub %r%", opcode, 1, opcode, opcode, get_src_name(opcode));
+    }
+    
     a = gb->registers[GB_REGISTER_AF] >> 8;
     gb->registers[GB_REGISTER_AF] = ((a - value) << 8) | GB_SUBTRACT_FLAG;
     if (a == value) {
@@ -1130,8 +1137,14 @@ static void and_a_r(GB_gameboy_t *gb, uint8_t opcode)
 static void xor_a_r(GB_gameboy_t *gb, uint8_t opcode)
 {
     uint8_t value, a;
-    libRR_log_instruction(gb->pc-1, "xor a", opcode, 1);
     value = get_src_value(gb, opcode);
+
+    // 1 byte register instruction logging
+    if (libRR_full_function_log) {
+        uint32_t current_pc = gb->pc-1;
+        libRR_log_instruction_z80_register(current_pc, "xor %r%", opcode, 1, opcode, opcode, get_src_name(opcode));
+    }
+
     a = gb->registers[GB_REGISTER_AF] >> 8;
     gb->registers[GB_REGISTER_AF] = (a ^ value) << 8;
     if ((a ^ value) == 0) {
@@ -1439,7 +1452,6 @@ static void and_a_d8(GB_gameboy_t *gb, uint8_t opcode)
 
 static void xor_a_d8(GB_gameboy_t *gb, uint8_t opcode)
 {
-    // libRR_log_instruction(gb->pc-1, "xor a d8", opcode, 2);
     uint8_t value, a;
     value = cycle_read_inc_oam_bug(gb, gb->pc++);
 
@@ -1629,7 +1641,7 @@ static void ld_a_dc(GB_gameboy_t *gb, uint8_t opcode)
 
 static void add_sp_r8(GB_gameboy_t *gb, uint8_t opcode)
 {
-    libRR_log_instruction(gb->pc-1, "ADD sp, r8", opcode, 1);
+    libRR_log_instruction(gb->pc-1, "ADD sp, r8", opcode, 2);
     int16_t offset;
     uint16_t sp = gb->registers[GB_REGISTER_SP];
     offset = (int8_t) cycle_read_inc_oam_bug(gb, gb->pc++);
@@ -1770,6 +1782,7 @@ static void rlc_r(GB_gameboy_t *gb, uint8_t opcode)
 
 static void rrc_r(GB_gameboy_t *gb, uint8_t opcode)
 {
+    // libRR_ logged elsewhere
     bool carry;
     uint8_t value;
     value = get_src_value(gb, opcode);
