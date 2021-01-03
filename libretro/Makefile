@@ -341,7 +341,7 @@ ifneq ($(findstring Haiku,$(shell uname -s)),)
 	# this is still rather ugly and could be done better I guess
 	od -A none -t x1 -v $< | sed -e 's/^\ /0x/' -e 's/\ /,\ 0x/g' -e 's/$$/,/g' | tr '\n' ' ' >> $@
 else
-	hexdump -v -e '/1 "0x%02x, "' $< >> $@
+	# hexdump -v -e '/1 "0x%02x, "' $< >> $@
 endif
 	echo "};" >> $@
 	echo "const unsigned $(notdir $(@:%.c=%))_length = sizeof($(notdir $(@:%.c=%)));" >> $@
