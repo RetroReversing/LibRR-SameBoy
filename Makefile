@@ -98,11 +98,11 @@ OPEN_DIALOG = OpenDialog/cocoa.m
 endif
 
 # These must come before the -Wno- flags
-WARNINGS += -Werror -Wall -Wno-unknown-warning -Wno-unknown-warning-option
+WARNINGS += -Wno-unknown-warning -Wno-unknown-warning-option
 WARNINGS += -Wno-nonnull -Wno-unused-result -Wno-strict-aliasing -Wno-multichar -Wno-int-in-bool-context
 
 # Only add this flag if the compiler supports it
-ifeq ($(shell $(CC) -x c -c $(NULL) -o $(NULL) -Werror -Wpartial-availability 2> $(NULL); echo $$?),0)
+ifeq ($(shell $(CC) -x c -c $(NULL) -o $(NULL) -Wpartial-availability 2> $(NULL); echo $$?),0)
 WARNINGS += -Wpartial-availability
 endif
 
@@ -399,7 +399,7 @@ $(OBJ)/BootROMs/SameBoyLogo.pb12: $(OBJ)/BootROMs/SameBoyLogo.2bpp $(PB12_COMPRE
 	$(realpath $(PB12_COMPRESS)) < $< > $@
 	
 $(PB12_COMPRESS): BootROMs/pb12.c
-	$(NATIVE_CC) -std=c99 -Wall -Werror $< -o $@
+	$(NATIVE_CC) -std=c99 -Wall $< -o $@
 
 $(BIN)/BootROMs/agb_boot.bin: BootROMs/cgb_boot.asm
 $(BIN)/BootROMs/cgb_boot_fast.bin: BootROMs/cgb_boot.asm
