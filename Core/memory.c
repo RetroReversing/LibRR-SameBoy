@@ -1162,6 +1162,7 @@ void GB_write_memory(GB_gameboy_t *gb, uint16_t addr, uint8_t value)
     write_map[addr >> 12](gb, addr, value);
 }
 
+void libRR_log_dma(int32_t offset);
 void GB_dma_run(GB_gameboy_t *gb)
 {
     while (gb->dma_cycles >= 4 && gb->dma_steps_left) {
