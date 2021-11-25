@@ -2,3 +2,4 @@ build
 *.o
 *.gb
 *.dylib
+.DS_Store
