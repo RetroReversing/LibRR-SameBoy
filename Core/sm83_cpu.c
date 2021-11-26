@@ -1520,7 +1520,7 @@ static void rst(GB_gameboy_t *gb, uint8_t opcode)
     cycle_write(gb, --gb->registers[GB_REGISTER_SP], (gb->pc) & 0xFF);
     gb->pc = opcode ^ 0xC7;
     // libRR start (not sure if RST should be counted as a call)
-    printf("RST");
+    // printf("RST");
     // libRR_log_function_call(opcode ^ 0xC7, gb->pc - 1, gb->registers[GB_REGISTER_SP]);
     // libRR end
     GB_debugger_call_hook(gb, call_addr);
